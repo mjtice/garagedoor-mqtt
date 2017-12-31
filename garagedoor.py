@@ -1,6 +1,7 @@
 import RPi.GPIO as GPIO
 import paho.mqtt.client as mqtt
 import time
+import signal
 
 # Setup GPIO
 gpio_pin = 18
@@ -10,6 +11,12 @@ GPIO.setup(gpio_pin, GPIO.OUT, initial=GPIO.HIGH)
 # Setup MQTT
 topic = 'home/garage/switch1/set'
 status_topic = 'home/garage/switch1/status'
+
+# Capture our TERM
+def signal_term_handler(signal, frame):
+    GPIO.cleanup()
+    print('Shutting down')
+    sys.exit(0)
 
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
@@ -23,9 +30,9 @@ def on_message(client, userdata, msg):
     if msg.payload.decode("utf-8") == 'PRESS':
         try:
             # Toggle the gpio pin
-            GPIO.output(gpio_pin, 1)
-            time.sleep(1)
             GPIO.output(gpio_pin, 0)
+            time.sleep(1)
+            GPIO.output(gpio_pin, 1)
             msg = 'OFF'
             client.publish(status_topic, payload=msg, qos=0, retain=False)
         except Exception as e:
@@ -44,6 +51,8 @@ try:
     # Other loop*() functions are available that give a threaded interface and a
     # manual interface.
     client.loop_forever()
+    signal.signal(signal.SIGTERM, signal_term_handler)
+
 
 except KeyboardInterrupt:
     GPIO.cleanup()
